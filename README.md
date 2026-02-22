@@ -86,8 +86,8 @@ Send a JSON payload to your endpoint:
 | `paginate_output`| boolean | ❌       | `false`      | Insert page delimiters into the output.                                                             |
 | `output_format`  | string  | ❌       | `"markdown"` | One of `"markdown"`, `"html"`, `"json"`, `"chunks"`.                                               |
 | `use_llm`        | boolean | ❌       | `false`      | Enable LLM-assisted conversion.                                                                     |
-| `llm_service`    | string  | ❌       | —            | Fully-qualified LLM service class, e.g. `"marker.services.claude.ClaudeService"`. Requires `use_llm=true`. |
-| `llm_model`      | string  | ❌       | —            | Model identifier for the chosen service, e.g. `"claude-opus-4-5"`. Requires `use_llm=true`.       |
+| `llm_service`    | string  | ❌       | `"marker.services.ollama.OllamaService"` | Fully-qualified LLM service class. Requires `use_llm=true`. |
+| `llm_config`     | object  | ❌       | —            | Service-specific config dict passed to the service constructor. Requires `use_llm=true`. See examples below. |
 
 ### Example — Markdown (base64 input)
 
@@ -113,7 +113,7 @@ Send a JSON payload to your endpoint:
 }
 ```
 
-### Example — LLM-assisted with a custom service and model
+### Example — LLM-assisted with Ollama (qwen3-vl:8b)
 
 ```json
 {
@@ -122,8 +122,11 @@ Send a JSON payload to your endpoint:
     "filename": "report.pdf",
     "output_format": "markdown",
     "use_llm": true,
-    "llm_service": "marker.services.claude.ClaudeService",
-    "llm_model": "claude-opus-4-5"
+    "llm_service": "marker.services.ollama.OllamaService",
+    "llm_config": {
+      "ollama_model": "qwen3-vl:8b",
+      "ollama_base_url": "http://localhost:11434"
+    }
   }
 }
 ```

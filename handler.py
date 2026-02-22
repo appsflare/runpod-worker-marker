@@ -9,9 +9,12 @@ Input schema (job["input"]):
     paginate_output - Optional. Add page delimiters to output. Defaults to False.
     output_format   - Optional. One of: "markdown", "json", "html", "chunks". Defaults to "markdown".
     use_llm         - Optional. Enable LLM-assisted conversion. Defaults to False.
-    llm_service     - Optional. LLM service class path (e.g. "marker.services.claude.ClaudeService").
+    llm_service     - Optional. Fully-qualified LLM service class path.
+                      Defaults to "marker.services.ollama.OllamaService".
                       Only used when use_llm=True.
-    llm_model       - Optional. Model identifier for the chosen LLM service.
+    llm_config      - Optional. Dict of service-specific config passed directly to the service
+                      constructor (e.g. {"ollama_model": "qwen3-vl:8b",
+                      "ollama_base_url": "http://localhost:11434"}).
                       Only used when use_llm=True.
 
 Output schema:
@@ -22,7 +25,8 @@ Output schema:
     html            - HTML text (when output_format="html").
     json            - Structured JSON dict (when output_format="json").
     chunks          - Chunks text (when output_format="chunks").
-    images          - Dict of image name -> base64-encoded PNG string.
+    images          - Dict of image name -> base64-encoded PNG string
+                      (populated for non-JSON output formats; empty for output_format="json").
     metadata        - Marker metadata dict.
     page_count      - Number of pages processed.
 
@@ -30,7 +34,7 @@ Environment variables:
     TORCH_DEVICE    - Device for inference ("cuda" or "cpu"). Defaults to "cuda".
     MODEL_CACHE_DIR - Directory where Marker/Surya models are downloaded and cached.
                       Set this to a persistent volume mount path (e.g. /runpod-volume/models)
-                      so models survive container restarts. Defaults to ~/.cache/datalab/models.
+                      so models survive container restarts. Defaults to /models (see Dockerfile).
 """
 
 import base64
@@ -89,18 +93,14 @@ def _resolve_file(pdf_input: str, filename: str) -> bytes:
     return base64.b64decode(pdf_input)
 
 
-def _build_llm_service(config_parser, llm_service: Optional[str], llm_model: Optional[str]):
-    """Return an LLM service instance, optionally overriding the class and model."""
+def _build_llm_service(config_parser, llm_service: Optional[str], llm_config: Optional[dict]):
+    """Return an LLM service instance, optionally overriding the class and config."""
     if llm_service:
-        # Dynamically import the requested service class and instantiate it.
-        module_path, class_name = llm_service.rsplit(".", 1)
         import importlib
+        module_path, class_name = llm_service.rsplit(".", 1)
         module = importlib.import_module(module_path)
         service_cls = getattr(module, class_name)
-        kwargs = {}
-        if llm_model:
-            kwargs["model"] = llm_model
-        return service_cls(**kwargs)
+        return service_cls(llm_config)
     # Fall back to whatever the config parser resolves.
     return config_parser.get_llm_service()
 
@@ -130,7 +130,13 @@ def handler(job: dict) -> dict:
     output_format: str = job_input.get("output_format", "markdown")
     use_llm: bool = bool(job_input.get("use_llm", False))
     llm_service_path: Optional[str] = job_input.get("llm_service")
-    llm_model: Optional[str] = job_input.get("llm_model")
+    llm_config: Optional[dict] = job_input.get("llm_config")
+
+    if use_llm and not llm_service_path:
+        llm_service_path = "marker.services.ollama.OllamaService"
+
+    if llm_config is not None and not isinstance(llm_config, dict):
+        return {"success": False, "error": "'llm_config' must be a JSON object (dict)."}
 
     # --- validate extension ---
     file_ext = Path(filename).suffix.lower() or ".pdf"
@@ -175,15 +181,13 @@ def handler(job: dict) -> dict:
             "output_format": output_format,
             "use_llm": use_llm,
         }
-        if llm_model:
-            config["llm_model"] = llm_model
 
         config_parser = ConfigParser(config)
         config_dict = config_parser.generate_config_dict()
         config_dict["pdftext_workers"] = 1
 
         llm_service_instance = (
-            _build_llm_service(config_parser, llm_service_path, llm_model)
+            _build_llm_service(config_parser, llm_service_path, llm_config)
             if use_llm
             else None
         )
