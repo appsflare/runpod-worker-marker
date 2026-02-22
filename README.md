@@ -14,6 +14,29 @@ A [RunPod](https://www.runpod.io/) serverless worker that converts PDFs and imag
 
 ---
 
+## CI/CD — Build & Push to GitLab Container Registry
+
+A GitHub Actions workflow (`.github/workflows/docker-build-push.yml`) automatically builds and pushes the Docker image to the GitLab Container Registry on every push to `main` and on semver tags (`v*.*.*`).
+
+### Required GitHub repository secrets and variables
+
+| Name | Kind | Value |
+|------|------|-------|
+| `GITLAB_REGISTRY_USER` | Secret | GitLab username or deploy-token username |
+| `GITLAB_REGISTRY_TOKEN` | Secret | GitLab personal access token (scope: `write_registry`) or deploy-token password |
+| `GITLAB_IMAGE_NAME` | Variable | GitLab project path without registry prefix, e.g. `my-group/runpod-worker-marker` |
+
+Configure these under **Settings → Secrets and variables → Actions** in your GitHub repository.
+
+### Tags produced
+
+| Trigger | Tags pushed |
+|---------|-------------|
+| Push to `main` | `:latest`, `:sha-<short-sha>` |
+| Tag `v1.2.3` | `:v1.2.3`, `:1.2`, `:sha-<short-sha>` |
+
+---
+
 ## Local Development
 
 ### Prerequisites
