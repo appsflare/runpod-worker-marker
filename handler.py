@@ -25,6 +25,12 @@ Output schema:
     images          - Dict of image name -> base64-encoded PNG string.
     metadata        - Marker metadata dict.
     page_count      - Number of pages processed.
+
+Environment variables:
+    TORCH_DEVICE    - Device for inference ("cuda" or "cpu"). Defaults to "cuda".
+    MODEL_CACHE_DIR - Directory where Marker/Surya models are downloaded and cached.
+                      Set this to a persistent volume mount path (e.g. /runpod-volume/models)
+                      so models survive container restarts. Defaults to ~/.cache/datalab/models.
 """
 
 import base64
@@ -44,6 +50,11 @@ logger = logging.getLogger(__name__)
 
 TORCH_DEVICE = os.environ.get("TORCH_DEVICE", "cuda")
 os.environ.setdefault("TORCH_DEVICE", TORCH_DEVICE)
+
+# MODEL_CACHE_DIR is read directly from the environment by the surya/marker
+# pydantic-settings singleton at import time. Set it before importing marker.
+# Defaults to /models (see Dockerfile); override to a persistent volume path
+# (e.g. /runpod-volume/models) to avoid re-downloading models on cold starts.
 
 ALLOWED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".tiff", ".bmp"}
 VALID_OUTPUT_FORMATS = {"markdown", "json", "html", "chunks"}

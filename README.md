@@ -68,7 +68,16 @@ docker build -t runpod-worker-marker:latest .
 1. Push the image to a container registry (Docker Hub, GHCR, etc.).
 2. Create a new **Serverless** endpoint in the RunPod console.
 3. Set the container image to your pushed image.
-4. (Optional) Set the `TORCH_DEVICE` environment variable to `cuda` (default) or `cpu`.
+4. Configure the following environment variables as needed:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TORCH_DEVICE` | `cuda` | Inference device (`cuda` or `cpu`). |
+| `MODEL_CACHE_DIR` | `/models` | Directory where Marker/Surya models are downloaded and loaded from. Set this to a **persistent volume** mount path (e.g. `/runpod-volume/models`) so models are reused across cold starts instead of being re-downloaded each time. |
+
+### Using a persistent volume for models
+
+In the RunPod console, attach a **Network Volume** to your serverless endpoint and set `MODEL_CACHE_DIR` to its mount path (e.g. `/runpod-volume/models`). On first run the models will be downloaded there; all subsequent cold starts will load from the volume, eliminating download time.
 
 ---
 

@@ -22,6 +22,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 ENV UV_SYSTEM_PYTHON=1 \
     UV_PYTHON=python3.11 \
     TORCH_DEVICE=cuda \
+    MODEL_CACHE_DIR=/models \
     PYTHONUNBUFFERED=1
 
 # --------------------------------------------------------------------------- #
