@@ -115,12 +115,12 @@ def handler(job: dict) -> dict:
 
     # --- validate models ---
     if MODELS is None:
-        return {"error": "Marker models failed to load. Check container logs."}
+        return {"success": False, "error": "Marker models failed to load. Check container logs."}
 
     # --- required field ---
     pdf_input: Optional[str] = job_input.get("pdf")
     if not pdf_input:
-        return {"error": "Missing required field: 'pdf' (base64 string or URL)."}
+        return {"success": False, "error": "Missing required field: 'pdf' (base64 string or URL)."}
 
     # --- optional fields ---
     filename: str = job_input.get("filename", "document.pdf")
@@ -136,13 +136,15 @@ def handler(job: dict) -> dict:
     file_ext = Path(filename).suffix.lower() or ".pdf"
     if file_ext not in ALLOWED_EXTENSIONS:
         return {
-            "error": f"Unsupported file type '{file_ext}'. Allowed: {sorted(ALLOWED_EXTENSIONS)}"
+            "success": False,
+            "error": f"Unsupported file type '{file_ext}'. Allowed: {sorted(ALLOWED_EXTENSIONS)}",
         }
 
     # --- validate output format ---
     if output_format not in VALID_OUTPUT_FORMATS:
         return {
-            "error": f"Invalid output_format '{output_format}'. Must be one of: {sorted(VALID_OUTPUT_FORMATS)}"
+            "success": False,
+            "error": f"Invalid output_format '{output_format}'. Must be one of: {sorted(VALID_OUTPUT_FORMATS)}",
         }
 
     # --- resolve file bytes ---
@@ -150,14 +152,17 @@ def handler(job: dict) -> dict:
         file_bytes = _resolve_file(pdf_input, filename)
     except Exception as exc:
         logger.exception("Failed to retrieve file.")
-        return {"error": f"Failed to retrieve file: {exc}"}
+        return {"success": False, "error": f"Failed to retrieve file: {exc}"}
 
-    # --- write to a temp file ---
-    with tempfile.NamedTemporaryFile(suffix=file_ext, delete=False) as tmp:
-        tmp.write(file_bytes)
-        temp_path = tmp.name
-
+    # --- write to a temp file and convert ---
+    # temp_path starts as None so the finally clause is safe even if the
+    # NamedTemporaryFile context manager raises before the assignment.
+    temp_path = None
     try:
+        with tempfile.NamedTemporaryFile(suffix=file_ext, delete=False) as tmp:
+            tmp.write(file_bytes)
+            temp_path = tmp.name
+
         from marker.config.parser import ConfigParser
         from marker.converters.pdf import PdfConverter
         from marker.settings import settings
@@ -238,10 +243,10 @@ def handler(job: dict) -> dict:
 
     except Exception as exc:
         logger.exception("Conversion failed for '%s'.", filename)
-        return {"error": f"Conversion failed: {exc}"}
+        return {"success": False, "error": f"Conversion failed: {exc}"}
 
     finally:
-        if os.path.exists(temp_path):
+        if temp_path and os.path.exists(temp_path):
             os.unlink(temp_path)
         gc.collect()
 
