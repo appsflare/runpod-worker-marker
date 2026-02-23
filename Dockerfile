@@ -5,8 +5,8 @@ FROM nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04
 # --------------------------------------------------------------------------- #
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3.11 \
-        python3.11-dev \
+        python3 \
+        python3-dev \
         python3-pip \
         git \
         wget \
@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=ghcr.io/astral-sh/uv:0.5.9 /uv /usr/local/bin/uv
 
 ENV UV_SYSTEM_PYTHON=1 \
-    UV_PYTHON=python3.11 \
+    UV_PYTHON=python3.12 \  
     TORCH_DEVICE=cuda \
     MODEL_CACHE_DIR=/models \
     PYTHONUNBUFFERED=1
@@ -38,4 +38,4 @@ RUN uv sync --no-dev --no-install-project
 # --------------------------------------------------------------------------- #
 COPY handler.py ./
 
-CMD ["python3.11", "handler.py"]
+CMD ["python3", "handler.py"]
