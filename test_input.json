@@ -1,0 +1,7 @@
+{
+    "input": {
+        "pdf": "https://pdfobject.com/pdf/sample.pdf",
+        "filename": "sample.pdf",
+        "output_format": "markdown"
+    }
+}

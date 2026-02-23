@@ -36,6 +36,6 @@ RUN uv sync --no-dev --no-install-project
 # --------------------------------------------------------------------------- #
 # Copy worker source
 # --------------------------------------------------------------------------- #
-COPY handler.py ./
+COPY handler.py test_input.json ./
 
 CMD ["uv", "run", "python3", "-u", "handler.py"]
