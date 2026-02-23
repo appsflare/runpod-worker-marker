@@ -90,7 +90,10 @@ def _resolve_file(pdf_input: str, filename: str) -> bytes:
         response.raise_for_status()
         return response.content
     # Assume base64-encoded bytes
-    return base64.b64decode(pdf_input)
+    try:
+        return base64.b64decode(pdf_input, validate=True)
+    except Exception as exc:
+        raise ValueError(f"Invalid base64 input: {exc}") from exc
 
 
 def _build_llm_service(config_parser, llm_service: Optional[str], llm_config: Optional[dict]):

@@ -34,7 +34,7 @@ Authentication uses the built-in `GITHUB_TOKEN` — **no extra secrets or variab
 ### Prerequisites
 
 - [UV](https://docs.astral.sh/uv/getting-started/installation/) installed.
-- Python 3.10+.
+- Python 3.11+.
 - (Optional) CUDA-capable GPU.
 
 ### Setup
