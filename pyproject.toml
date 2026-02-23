@@ -2,7 +2,7 @@
 name = "runpod-worker-marker"
 version = "0.1.0"
 description = "RunPod serverless worker for Marker PDF conversion"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "runpod>=1.7.9",
     "marker-pdf[full]>=1.7.4",

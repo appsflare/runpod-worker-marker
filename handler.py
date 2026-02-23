@@ -119,6 +119,9 @@ def handler(job: dict) -> dict:
 
     # --- required field ---
     pdf_input: Optional[str] = job_input.get("pdf")
+    if pdf_input is None:
+        return {"error": "Missing required field: 'pdf' (base64 string or URL)."}
+    pdf_input = pdf_input.strip()
     if not pdf_input:
         return {"success": False, "error": "Missing required field: 'pdf' (base64 string or URL)."}
 

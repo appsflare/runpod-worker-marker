@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # --------------------------------------------------------------------------- #
 # Install UV
 # --------------------------------------------------------------------------- #
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.5.9 /uv /usr/local/bin/uv
 
 ENV UV_SYSTEM_PYTHON=1 \
     UV_PYTHON=python3.11 \
