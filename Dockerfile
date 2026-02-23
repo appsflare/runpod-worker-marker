@@ -38,4 +38,4 @@ RUN uv sync --no-dev --no-install-project
 # --------------------------------------------------------------------------- #
 COPY handler.py ./
 
-CMD ["python3", "handler.py"]
+CMD ["uv", "run", "python3", "-u", "handler.py"]
