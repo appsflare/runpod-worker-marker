@@ -40,6 +40,7 @@ Environment variables:
 import base64
 import gc
 import io
+import json
 import logging
 import os
 import tempfile
@@ -226,7 +227,7 @@ def handler(job: dict) -> dict:
             if output_format == "html":
                 html_content = text
             elif output_format == "chunks":
-                chunks_content = text
+                chunks_content = json.loads(text)
             else:
                 markdown_content = text
 
