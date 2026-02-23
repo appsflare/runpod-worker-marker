@@ -1,0 +1,2 @@
+# Dependencies are managed via pyproject.toml and UV.
+# Run `uv sync` to install.

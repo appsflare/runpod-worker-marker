@@ -1,0 +1,23 @@
+[project]
+name = "runpod-worker-marker"
+version = "0.1.0"
+description = "RunPod serverless worker for Marker PDF conversion"
+requires-python = ">=3.11"
+dependencies = [
+    "runpod>=1.7.9",
+    "marker-pdf[full]>=1.7.4",
+    "torch>=2.2.2,<3.0.0",
+    "torchvision>=0.17.0",
+    "torchaudio>=2.2.0",
+    "requests>=2.32.0",
+]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+torchaudio = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
