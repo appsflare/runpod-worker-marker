@@ -16,9 +16,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # --------------------------------------------------------------------------- #
-# Install Ollama
+# Install Ollama (direct binary download – avoids systemctl in install script)
 # --------------------------------------------------------------------------- #
-RUN curl -fsSL https://ollama.com/install.sh | bash
+RUN curl -fsSL https://github.com/ollama/ollama/releases/latest/download/ollama-linux-amd64 \
+    -o /usr/local/bin/ollama \
+    && chmod +x /usr/local/bin/ollama
 
 # --------------------------------------------------------------------------- #
 # Install UV
