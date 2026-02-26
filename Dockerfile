@@ -1,3 +1,5 @@
+FROM ollama/ollama:latest AS ollama
+
 FROM nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04
 
 # --------------------------------------------------------------------------- #
@@ -16,11 +18,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # --------------------------------------------------------------------------- #
-# Install Ollama (direct binary download – avoids systemctl in install script)
+# Install Ollama (copied from official image to avoid install script / systemd)
 # --------------------------------------------------------------------------- #
-RUN curl -fsSL https://github.com/ollama/ollama/releases/latest/download/ollama-linux-amd64 \
-    -o /usr/local/bin/ollama \
-    && chmod +x /usr/local/bin/ollama
+COPY --from=ollama /usr/local/bin/ollama /usr/local/bin/ollama
+COPY --from=ollama /usr/local/lib/ollama /usr/local/lib/ollama
 
 # --------------------------------------------------------------------------- #
 # Install UV
