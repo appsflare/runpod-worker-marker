@@ -16,6 +16,9 @@ Input schema (job["input"]):
                       constructor (e.g. {"ollama_model": "qwen3-vl:8b",
                       "ollama_base_url": "http://localhost:11434"}).
                       Only used when use_llm=True.
+    action          - Optional. Control message for the worker lifecycle.
+                      "stop_ollama": gracefully stop the background Ollama server.
+                      When set, no PDF conversion is performed.
 
 Output schema:
     success         - True on successful conversion.
@@ -49,6 +52,7 @@ from typing import Optional
 
 import requests
 import runpod
+from ollama_runner import OllamaRunner
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -77,6 +81,12 @@ try:
 except Exception:
     logger.exception("Failed to load Marker models.")
     MODELS = None
+
+# ---------------------------------------------------------------------------
+# OllamaRunner singleton – shared across all jobs (warm-start reuse).
+# ---------------------------------------------------------------------------
+
+ollama_runner = OllamaRunner()
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +126,11 @@ def _build_llm_service(config_parser, llm_service: Optional[str], llm_config: Op
 def handler(job: dict) -> dict:
     """Process a single PDF conversion job."""
     job_input: dict = job.get("input", {})
+
+    # --- action messages (no pdf conversion needed) ---
+    if job_input.get("action") == "stop_ollama":
+        ollama_runner.stop()
+        return {"success": True, "message": "Ollama server stopped."}
 
     # --- validate models ---
     if MODELS is None:
@@ -192,6 +207,12 @@ def handler(job: dict) -> dict:
         config_parser = ConfigParser(config)
         config_dict = config_parser.generate_config_dict()
         config_dict["pdftext_workers"] = 1
+
+        # --- lazy-start Ollama if needed ---
+        if use_llm and llm_service_path and OllamaRunner.is_ollama_service(llm_service_path):
+            _base_url = (llm_config or {}).get("ollama_base_url", "http://localhost:11434")
+            _model = (llm_config or {}).get("ollama_model")
+            ollama_runner.ensure_ready(_base_url, _model)
 
         llm_service_instance = (
             _build_llm_service(config_parser, llm_service_path, llm_config)

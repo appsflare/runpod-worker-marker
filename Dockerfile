@@ -9,10 +9,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3-dev \
         python3-pip \
         git \
+        curl \
         wget \
         libgl1 \
         libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
+
+# --------------------------------------------------------------------------- #
+# Install Ollama
+# --------------------------------------------------------------------------- #
+RUN curl -fsSL https://ollama.com/install.sh | sh
 
 # --------------------------------------------------------------------------- #
 # Install UV
@@ -36,6 +42,6 @@ RUN uv sync --no-dev --no-install-project
 # --------------------------------------------------------------------------- #
 # Copy worker source
 # --------------------------------------------------------------------------- #
-COPY handler.py test_input.json ./
+COPY handler.py ollama_runner.py test_input.json ./
 
 CMD ["uv", "run", "python3", "-u", "handler.py"]
