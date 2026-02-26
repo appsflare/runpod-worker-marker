@@ -20,8 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # --------------------------------------------------------------------------- #
 # Install Ollama (copied from official image to avoid install script / systemd)
 # --------------------------------------------------------------------------- #
-COPY --from=ollama /usr/local/bin/ollama /usr/local/bin/ollama
-COPY --from=ollama /usr/local/lib/ollama /usr/local/lib/ollama
+COPY --from=ollama /bin/ollama /usr/local/bin/ollama
+COPY --from=ollama /lib/ollama /lib/ollama
 
 # --------------------------------------------------------------------------- #
 # Install UV
