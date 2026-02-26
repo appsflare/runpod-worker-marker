@@ -13,6 +13,7 @@ import logging
 import os
 import signal
 import subprocess
+import threading
 import time
 from typing import Optional
 
@@ -40,6 +41,12 @@ class OllamaRunner:
 
     def __init__(self) -> None:
         self._process: Optional[subprocess.Popen] = None
+        self._lock = threading.RLock()
+        self._state_cv = threading.Condition(self._lock)
+        self._start_in_progress = False
+        self._stop_in_progress = False
+        self._stop_requested = False
+        self._last_start_error: Optional[Exception] = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -52,18 +59,63 @@ class OllamaRunner:
 
     def start(self, base_url: str = "http://localhost:11434") -> None:
         """Start ``ollama serve`` in the background if not already running, then wait until ready."""
-        if self._process is not None and self._process.poll() is None:
-            logger.info("Ollama already running (pid %d), skipping start.", self._process.pid)
-            return
+        with self._state_cv:
+            while self._stop_in_progress:
+                logger.info("Stop in progress; waiting before start.")
+                self._state_cv.wait()
 
-        logger.info("Starting ollama serve in background…")
-        self._process = subprocess.Popen(
-            ["ollama", "serve"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        logger.info("Ollama process started (pid %d).", self._process.pid)
-        self._wait_until_ready(base_url)
+            if self._process is not None and self._process.poll() is None:
+                logger.info("Ollama already running (pid %d), skipping start.", self._process.pid)
+                return
+
+            if self._start_in_progress:
+                logger.info("Ollama start is pending; waiting for in-flight startup to finish.")
+                while self._start_in_progress:
+                    self._state_cv.wait()
+
+                if self._process is not None and self._process.poll() is None:
+                    logger.info("In-flight startup completed; Ollama is running.")
+                    return
+
+                if self._last_start_error is not None:
+                    raise RuntimeError("Ollama startup failed in another request.") from self._last_start_error
+
+                raise RuntimeError("Ollama startup did not complete successfully.")
+
+            if self._stop_requested:
+                raise RuntimeError("Ollama startup canceled because stop was requested.")
+
+            self._start_in_progress = True
+            self._last_start_error = None
+
+        start_error: Optional[Exception] = None
+        process: Optional[subprocess.Popen] = None
+        try:
+            logger.info("Starting ollama serve in background…")
+            process = subprocess.Popen(
+                ["ollama", "serve"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            logger.info("Ollama process started (pid %d).", process.pid)
+
+            with self._state_cv:
+                self._process = process
+                self._state_cv.notify_all()
+
+            self._wait_until_ready(base_url, process)
+        except Exception as exc:
+            start_error = exc
+            raise
+        finally:
+            with self._state_cv:
+                self._start_in_progress = False
+                self._last_start_error = start_error
+
+                if self._process is not None and self._process.poll() is not None:
+                    self._process = None
+
+                self._state_cv.notify_all()
 
     def pull_model(self, model: str, base_url: str = "http://localhost:11434") -> None:
         """Pull *model* if it is not already present in the local Ollama registry.
@@ -94,33 +146,63 @@ class OllamaRunner:
 
     def stop(self) -> None:
         """Terminate the Ollama background process gracefully (SIGTERM → SIGKILL)."""
-        if self._process is None or self._process.poll() is not None:
+        with self._state_cv:
+            self._stop_requested = True
+
+            while self._stop_in_progress:
+                self._state_cv.wait()
+
+            self._stop_in_progress = True
+            process = self._process
+
+            while self._start_in_progress and (process is None or process.poll() is not None):
+                self._state_cv.wait(timeout=0.1)
+                process = self._process
+
+        if process is None or process.poll() is not None:
             logger.info("Ollama is not running; nothing to stop.")
-            self._process = None
+            with self._state_cv:
+                self._process = None
+                self._stop_in_progress = False
+                self._stop_requested = False
+                self._state_cv.notify_all()
             return
 
-        logger.info("Stopping Ollama (pid %d) …", self._process.pid)
-        self._process.send_signal(signal.SIGTERM)
+        logger.info("Stopping Ollama (pid %d) …", process.pid)
+        process.send_signal(signal.SIGTERM)
         try:
-            self._process.wait(timeout=10)
+            process.wait(timeout=10)
         except subprocess.TimeoutExpired:
             logger.warning("Ollama did not exit after SIGTERM; sending SIGKILL.")
-            self._process.kill()
-            self._process.wait()
+            process.kill()
+            process.wait()
 
-        self._process = None
+        with self._state_cv:
+            self._process = None
+            self._stop_in_progress = False
+            self._stop_requested = False
+            self._state_cv.notify_all()
+
         logger.info("Ollama process stopped.")
 
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _wait_until_ready(self, base_url: str) -> None:
+    def _wait_until_ready(self, base_url: str, process: subprocess.Popen) -> None:
         """Poll ``GET /api/tags`` until Ollama responds or *OLLAMA_READY_TIMEOUT* is exceeded."""
         deadline = time.monotonic() + OLLAMA_READY_TIMEOUT
         attempt = 0
         while time.monotonic() < deadline:
             attempt += 1
+
+            with self._state_cv:
+                if self._stop_requested:
+                    raise RuntimeError("Ollama startup canceled due to stop request.")
+
+            if process.poll() is not None:
+                raise RuntimeError("Ollama process exited before becoming ready.")
+
             try:
                 resp = requests.get(f"{base_url}/api/tags", timeout=2)
                 if resp.status_code == 200:

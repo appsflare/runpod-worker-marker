@@ -2,6 +2,12 @@
     "input": {
         "pdf": "https://pdfobject.com/pdf/sample.pdf",
         "filename": "sample.pdf",
-        "output_format": "markdown"
+        "output_format": "markdown",
+        "use_llm": true,
+        "llm_service": "marker.services.ollama.OllamaService",
+        "llm_config": {
+            "ollama_base_url": "http://localhost:11434",
+            "ollama_model": "qwen3.5:35b"
+        }
     }
 }

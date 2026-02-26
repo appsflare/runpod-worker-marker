@@ -57,8 +57,8 @@ from ollama_runner import OllamaRunner
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-TORCH_DEVICE = os.environ.get("TORCH_DEVICE", "cuda")
-os.environ.setdefault("TORCH_DEVICE", TORCH_DEVICE)
+# TORCH_DEVICE = os.environ.get("TORCH_DEVICE", "cuda")
+# os.environ.setdefault("TORCH_DEVICE", TORCH_DEVICE)
 
 # MODEL_CACHE_DIR is read directly from the environment by the surya/marker
 # pydantic-settings singleton at import time. Set it before importing marker.
@@ -106,19 +106,6 @@ def _resolve_file(pdf_input: str, filename: str) -> bytes:
     except Exception as exc:
         raise ValueError(f"Invalid base64 input: {exc}") from exc
 
-
-def _build_llm_service(config_parser, llm_service: Optional[str], llm_config: Optional[dict]):
-    """Return an LLM service instance, optionally overriding the class and config."""
-    if llm_service:
-        import importlib
-        module_path, class_name = llm_service.rsplit(".", 1)
-        module = importlib.import_module(module_path)
-        service_cls = getattr(module, class_name)
-        return service_cls(llm_config)
-    # Fall back to whatever the config parser resolves.
-    return config_parser.get_llm_service()
-
-
 # ---------------------------------------------------------------------------
 # RunPod handler
 # ---------------------------------------------------------------------------
@@ -152,7 +139,7 @@ def handler(job: dict) -> dict:
     output_format: str = job_input.get("output_format", "markdown")
     use_llm: bool = bool(job_input.get("use_llm", False))
     llm_service_path: Optional[str] = job_input.get("llm_service")
-    llm_config: Optional[dict] = job_input.get("llm_config")
+    llm_config: Optional[dict] = job_input.get("llm_config",{})
 
     if use_llm and not llm_service_path:
         llm_service_path = "marker.services.ollama.OllamaService"
@@ -202,6 +189,8 @@ def handler(job: dict) -> dict:
             "paginate_output": paginate_output,
             "output_format": output_format,
             "use_llm": use_llm,
+            "llm_service": llm_service_path,
+            **llm_config           
         }
 
         config_parser = ConfigParser(config)
@@ -214,18 +203,13 @@ def handler(job: dict) -> dict:
             _model = (llm_config or {}).get("ollama_model")
             ollama_runner.ensure_ready(_base_url, _model)
 
-        llm_service_instance = (
-            _build_llm_service(config_parser, llm_service_path, llm_config)
-            if use_llm
-            else None
-        )
-
         converter = PdfConverter(
             config=config_dict,
             artifact_dict=MODELS,
             processor_list=config_parser.get_processors(),
             renderer=config_parser.get_renderer(),
-            llm_service=llm_service_instance,
+            llm_service=config_parser.get_llm_service(),
+            
         )
 
         logger.info("Converting '%s' to %s …", filename, output_format)
@@ -285,3 +269,4 @@ def handler(job: dict) -> dict:
 
 if __name__ == "__main__":
     runpod.serverless.start({"handler": handler})
+    ollama_runner.stop()  # Ensure Ollama is stopped when the container shuts down
