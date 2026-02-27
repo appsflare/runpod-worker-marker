@@ -1,4 +1,4 @@
-FROM ollama/ollama:latest AS ollama
+FROM ollama/ollama:0.17.4 AS ollama
 
 FROM nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04
 
