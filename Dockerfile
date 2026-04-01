@@ -1,4 +1,4 @@
-FROM ollama/ollama:0.17.7 AS ollama
+FROM ollama/ollama:0.19 AS ollama
 
 FROM nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04
 
@@ -45,6 +45,6 @@ RUN uv sync --no-dev --no-install-project
 # --------------------------------------------------------------------------- #
 # Copy worker source
 # --------------------------------------------------------------------------- #
-COPY handler.py ollama_runner.py test_input.json ./
+COPY handler.py openai_service.py ollama_runner.py test_input.json ./
 
 CMD ["uv", "run", "python3", "-u", "handler.py"]
